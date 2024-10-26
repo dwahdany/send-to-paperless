@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"lib": ["esnext"],
+      "moduleResolution": "nodenext",
+		"strict": true,
+		"skipLibCheck": true,
+		"types": [
+			"@cloudflare/workers-types/2023-07-01"
+		]
+	}
+}
