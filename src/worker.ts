@@ -1,3 +1,4 @@
+// @ts-ignore
 import PostalMime, { Attachment } from 'postal-mime';
 
 let HEADERS = {};
@@ -24,8 +25,12 @@ export default {
 		const msg = await PostalMime.parse(message.raw);
 
 		for (const attachment of msg.attachments) {
+      if (attachment.disposition == "inline") {
+        continue;
+      }
+
 			const filename = attachment.filename;
-			console.log(`Processing attachment with name ${filename}`);
+			console.log(`Processing attachment with name ${filename} and mime type ${attachment.mimeType}`);
 
 			const resp = await this.post_document(env, attachment, msg.subject);
 			if (resp.ok) {
