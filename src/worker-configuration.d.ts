@@ -5,6 +5,6 @@ interface Env {
 	CF_ACCESS_CLIENT_ID: string;
 	CF_ACCESS_CLIENT_SECRET: string;
 	PAPERLESS_TOKEN: string;
-  PAPERLESS_API_BASE: string;
-  POSTMASTER_EMAIL: string;
+	PAPERLESS_API_BASE: string;
+	POSTMASTER_EMAIL: string;
 }

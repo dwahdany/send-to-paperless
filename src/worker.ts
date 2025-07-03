@@ -25,9 +25,9 @@ export default {
 		const msg = await PostalMime.parse(message.raw);
 
 		for (const attachment of msg.attachments) {
-      if (attachment.disposition == "inline") {
-        continue;
-      }
+			if (attachment.disposition == 'inline') {
+				continue;
+			}
 
 			const filename = attachment.filename;
 			console.log(`Processing attachment with name ${filename} and mime type ${attachment.mimeType}`);
