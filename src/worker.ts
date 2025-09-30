@@ -23,9 +23,15 @@ export default {
 		};
 
 		const msg = await PostalMime.parse(message.raw);
+		const ignoredMimeTypes = env.IGNORED_MIME_TYPES ? env.IGNORED_MIME_TYPES.split(',').map((t) => t.trim()) : [];
 
 		for (const attachment of msg.attachments) {
 			if (attachment.disposition == 'inline') {
+				continue;
+			}
+
+			if (ignoredMimeTypes.includes(attachment.mimeType)) {
+				console.log(`Skipping attachment ${attachment.filename} with ignored MIME type ${attachment.mimeType}`);
 				continue;
 			}
 
