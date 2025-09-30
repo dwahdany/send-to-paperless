@@ -7,4 +7,5 @@ interface Env {
 	PAPERLESS_TOKEN: string;
 	PAPERLESS_API_BASE: string;
 	POSTMASTER_EMAIL: string;
+	PAPERLESS_DEFAULT_TAG?: string;
 }

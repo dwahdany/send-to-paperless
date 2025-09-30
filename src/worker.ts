@@ -47,7 +47,7 @@ export default {
 	async post_document(env: Env, attachment: Attachment, subject?: string): Promise<Response> {
 		const doc: PaperlessDocument = {
 			title: attachment.filename ?? subject ?? 'UNKNOWN', // TODO this better
-			tags: '11',
+			tags: env.PAPERLESS_DEFAULT_TAG,
 		};
 
 		const formData = new FormData();
