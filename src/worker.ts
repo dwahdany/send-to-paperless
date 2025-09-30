@@ -33,12 +33,14 @@ export default {
 			console.log(`Processing attachment with name ${filename} and mime type ${attachment.mimeType}`);
 
 			const resp = await this.post_document(env, attachment, msg.subject);
+			const body = await resp.text();
 			if (resp.ok) {
 				console.log(`Successfully submitted ${filename} to paperless`);
+				console.log(`Response: ${body}`);
 			} else {
 				console.warn(`Failed to submit: ${filename}`);
-				const body = await resp.text();
-				console.warn(body);
+				console.warn(`Status: ${resp.status}`);
+				console.warn(`Response: ${body}`);
 				await message.forward(env.POSTMASTER_EMAIL);
 			}
 		}
