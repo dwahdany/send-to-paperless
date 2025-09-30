@@ -8,4 +8,4 @@ enabled = true
 head_sampling_rate = 1
 
 [vars]
-IGNORED_MIME_TYPES = "application/pgp-keys"
+IGNORED_MIME_TYPES = "application/pgp-keys,application/pgp-signature"
