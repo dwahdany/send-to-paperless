@@ -75,12 +75,16 @@ export default {
 		const tagMap = await fetchTags(env);
 
 		for (const attachment of msg.attachments) {
-			if (attachment.disposition == 'inline') {
+			// Skip ignored MIME types first
+			if (ignoredMimeTypes.includes(attachment.mimeType)) {
+				console.log(`Skipping attachment ${attachment.filename} with ignored MIME type ${attachment.mimeType}`);
 				continue;
 			}
 
-			if (ignoredMimeTypes.includes(attachment.mimeType)) {
-				console.log(`Skipping attachment ${attachment.filename} with ignored MIME type ${attachment.mimeType}`);
+			// Skip inline attachments, but allow PDFs and other document types even if inline
+			const documentMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+			if (attachment.disposition == 'inline' && !documentMimeTypes.includes(attachment.mimeType)) {
+				console.log(`Skipping inline attachment ${attachment.filename} with MIME type ${attachment.mimeType}`);
 				continue;
 			}
 
