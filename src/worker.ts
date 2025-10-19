@@ -65,6 +65,12 @@ export default {
 		const msg = await PostalMime.parse(message.raw);
 		const ignoredMimeTypes = env.IGNORED_MIME_TYPES ? env.IGNORED_MIME_TYPES.split(',').map((t) => t.trim()) : [];
 
+		// Debug logging
+		console.log(`Email parsed: subject="${msg.subject}", attachments count=${msg.attachments.length}`);
+		msg.attachments.forEach((att, idx) => {
+			console.log(`Attachment ${idx}: filename="${att.filename}", mimeType="${att.mimeType}", disposition="${att.disposition}", size=${att.content?.byteLength || 0}`);
+		});
+
 		// Fetch tag map from Paperless API
 		const tagMap = await fetchTags(env);
 
