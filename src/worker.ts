@@ -188,11 +188,11 @@ export default {
 		}
 		if (groupIds.length > 0) {
 			const permissions = {
-				view: { groups: groupIds },
-				change: { groups: groupIds },
+				view: { users: [3], groups: groupIds },
+				change: { users: [3], groups: groupIds },
 			};
 			formData.append('set_permissions', JSON.stringify(permissions));
-			console.log(`Setting permissions for groups: ${groupIds.join(', ')}`);
+			console.log(`Setting permissions for user 3 and groups: ${groupIds.join(', ')}`);
 		}
 
 		console.log(`Uploading document: title="${title}", tags="${doc.tags}"`);
