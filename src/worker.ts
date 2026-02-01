@@ -54,6 +54,84 @@ async function fetchTags(env: Env): Promise<Map<string, number>> {
 	return tagMap;
 }
 
+interface TaskResult {
+	id: string;
+	task_id: string;
+	task_file_name: string;
+	date_created: string;
+	date_done: string | null;
+	status: 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE' | 'RETRY';
+	result: string | null; // document ID as string when SUCCESS
+	acknowledged: boolean;
+	related_document: string | null;
+}
+
+async function pollForTaskCompletion(env: Env, taskId: string, maxAttempts = 30, delayMs = 2000): Promise<number | null> {
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		const response = await fetch(`${env.PAPERLESS_API_BASE}/tasks/?task_id=${taskId}`, {
+			headers: HEADERS,
+			method: 'GET',
+		});
+
+		if (!response.ok) {
+			console.warn(`Failed to poll task ${taskId}: ${response.status}`);
+			return null;
+		}
+
+		const tasks = await response.json() as TaskResult[];
+		if (tasks.length === 0) {
+			console.log(`Task ${taskId} not found yet, attempt ${attempt + 1}/${maxAttempts}`);
+			await new Promise((resolve) => setTimeout(resolve, delayMs));
+			continue;
+		}
+
+		const task = tasks[0];
+		console.log(`Task ${taskId} status: ${task.status}`);
+
+		if (task.status === 'SUCCESS') {
+			const documentId = task.related_document ? parseInt(task.related_document) : (task.result ? parseInt(task.result) : null);
+			console.log(`Task completed, document ID: ${documentId}`);
+			return documentId;
+		} else if (task.status === 'FAILURE') {
+			console.error(`Task ${taskId} failed: ${task.result}`);
+			return null;
+		}
+
+		// Still pending/started, wait and retry
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+	}
+
+	console.warn(`Task ${taskId} did not complete within ${maxAttempts} attempts`);
+	return null;
+}
+
+async function setDocumentPermissions(env: Env, documentId: number, groupIds: number[]): Promise<boolean> {
+	const permissions = {
+		set_permissions: {
+			view: { users: [], groups: groupIds },
+			change: { users: [], groups: groupIds },
+		},
+	};
+
+	const response = await fetch(`${env.PAPERLESS_API_BASE}/documents/${documentId}/`, {
+		headers: {
+			...HEADERS,
+			'Content-Type': 'application/json',
+		},
+		method: 'PATCH',
+		body: JSON.stringify(permissions),
+	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		console.error(`Failed to set permissions on document ${documentId}: ${response.status} - ${body}`);
+		return false;
+	}
+
+	console.log(`Successfully set permissions for groups ${groupIds.join(', ')} on document ${documentId}`);
+	return true;
+}
+
 function parseHashtags(subject: string): { tags: string[]; cleanedSubject: string } {
 	const hashtagRegex = /#(\w+)/g;
 	const tags: string[] = [];
@@ -105,21 +183,37 @@ export default {
 			const filename = attachment.filename;
 			console.log(`Processing attachment with name ${filename} and mime type ${attachment.mimeType}`);
 
-			const resp = await this.post_document(env, attachment, msg.subject, tagMap, message.to);
-			const body = await resp.text();
-			if (resp.ok) {
+			const { response, groupIds } = await this.post_document(env, attachment, msg.subject, tagMap, message.to);
+			const body = await response.text();
+			if (response.ok) {
 				console.log(`Successfully submitted ${filename} to paperless`);
 				console.log(`Response: ${body}`);
+
+				// If we have group permissions to set, poll for task completion and set them
+				if (groupIds.length > 0) {
+					try {
+						const taskData = JSON.parse(body) as string; // Response is the task UUID
+						console.log(`Task UUID: ${taskData}`);
+						const documentId = await pollForTaskCompletion(env, taskData);
+						if (documentId) {
+							await setDocumentPermissions(env, documentId, groupIds);
+						} else {
+							console.warn(`Could not get document ID to set permissions`);
+						}
+					} catch (e) {
+						console.error(`Failed to set permissions: ${e}`);
+					}
+				}
 			} else {
 				console.warn(`Failed to submit: ${filename}`);
-				console.warn(`Status: ${resp.status}`);
+				console.warn(`Status: ${response.status}`);
 				console.warn(`Response: ${body}`);
 				await message.forward(env.POSTMASTER_EMAIL);
 			}
 		}
 	},
 
-	async post_document(env: Env, attachment: Attachment, subject: string | undefined, tagMap: Map<string, number>, recipient: string): Promise<Response> {
+	async post_document(env: Env, attachment: Attachment, subject: string | undefined, tagMap: Map<string, number>, recipient: string): Promise<{ response: Response; groupIds: number[] }> {
 		// Parse hashtags from subject
 		const { tags: hashtagNames, cleanedSubject } = subject ? parseHashtags(subject) : { tags: [], cleanedSubject: '' };
 
@@ -186,21 +280,15 @@ export default {
 		if (doc.tags) {
 			formData.append('tags', doc.tags);
 		}
-		if (groupIds.length > 0) {
-			const permissions = {
-				view: { users: [], groups: groupIds },
-				change: { users: [], groups: groupIds },
-			};
-			formData.append('set_permissions', JSON.stringify(permissions));
-			console.log(`Setting permissions for groups: ${groupIds.join(', ')}`);
-		}
 
 		console.log(`Uploading document: title="${title}", tags="${doc.tags}"`);
 
-		return await fetch(`${env.PAPERLESS_API_BASE}/documents/post_document/`, {
+		const response = await fetch(`${env.PAPERLESS_API_BASE}/documents/post_document/`, {
 			headers: HEADERS,
 			method: 'POST',
 			body: formData,
 		});
+
+		return { response, groupIds };
 	},
 };
