@@ -3,10 +3,14 @@ import PostalMime, { Attachment } from 'postal-mime';
 
 let HEADERS = {};
 
-// Map recipient addresses to tag names
-const RECIPIENT_TAG_MAP: Record<string, string> = {
-	'nunc@mailroutes.wahdany.eu': 'nunc',
-};
+// Parse plus addressing tags from email (e.g., docs+nunc+tax@example.com → ['nunc', 'tax'])
+function parsePlusAddressTags(email: string): string[] {
+	const localPart = email.split('@')[0];
+	const plusIndex = localPart.indexOf('+');
+	if (plusIndex === -1) return [];
+	const tagPart = localPart.slice(plusIndex + 1);
+	return tagPart.split('+').map((t) => t.toLowerCase()).filter((t) => t.length > 0);
+}
 
 interface PaperlessDocument {
 	title: string;
@@ -128,15 +132,15 @@ export default {
 			}
 		}
 
-		// Add recipient-based tag if configured
-		const recipientTagName = RECIPIENT_TAG_MAP[recipient.toLowerCase()];
-		if (recipientTagName) {
-			const recipientTagId = tagMap.get(recipientTagName);
-			if (recipientTagId) {
-				tagIds.push(recipientTagId);
-				console.log(`Applied recipient tag "${recipientTagName}" (ID: ${recipientTagId}) for ${recipient}`);
+		// Add tags from plus addressing (e.g., docs+nunc+tax@example.com)
+		const plusTags = parsePlusAddressTags(recipient);
+		for (const tagName of plusTags) {
+			const tagId = tagMap.get(tagName);
+			if (tagId) {
+				tagIds.push(tagId);
+				console.log(`Applied plus-address tag "${tagName}" (ID: ${tagId}) from ${recipient}`);
 			} else {
-				console.warn(`Recipient tag "${recipientTagName}" not found in Paperless`);
+				console.warn(`Plus-address tag "${tagName}" not found in Paperless`);
 			}
 		}
 
