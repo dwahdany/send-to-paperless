@@ -3,6 +3,11 @@ import PostalMime, { Attachment } from 'postal-mime';
 
 let HEADERS = {};
 
+// Map recipient addresses to tag names
+const RECIPIENT_TAG_MAP: Record<string, string> = {
+	'nunc@mailroutes.wahdany.eu': 'nunc',
+};
+
 interface PaperlessDocument {
 	title: string;
 	created?: Date;
@@ -91,7 +96,7 @@ export default {
 			const filename = attachment.filename;
 			console.log(`Processing attachment with name ${filename} and mime type ${attachment.mimeType}`);
 
-			const resp = await this.post_document(env, attachment, msg.subject, tagMap);
+			const resp = await this.post_document(env, attachment, msg.subject, tagMap, message.to);
 			const body = await resp.text();
 			if (resp.ok) {
 				console.log(`Successfully submitted ${filename} to paperless`);
@@ -105,7 +110,7 @@ export default {
 		}
 	},
 
-	async post_document(env: Env, attachment: Attachment, subject: string | undefined, tagMap: Map<string, number>): Promise<Response> {
+	async post_document(env: Env, attachment: Attachment, subject: string | undefined, tagMap: Map<string, number>, recipient: string): Promise<Response> {
 		// Parse hashtags from subject
 		const { tags: hashtagNames, cleanedSubject } = subject ? parseHashtags(subject) : { tags: [], cleanedSubject: '' };
 
@@ -120,6 +125,18 @@ export default {
 			const forcedTagId = parseInt(env.PAPERLESS_FORCED_TAG);
 			if (!isNaN(forcedTagId)) {
 				tagIds.push(forcedTagId);
+			}
+		}
+
+		// Add recipient-based tag if configured
+		const recipientTagName = RECIPIENT_TAG_MAP[recipient.toLowerCase()];
+		if (recipientTagName) {
+			const recipientTagId = tagMap.get(recipientTagName);
+			if (recipientTagId) {
+				tagIds.push(recipientTagId);
+				console.log(`Applied recipient tag "${recipientTagName}" (ID: ${recipientTagId}) for ${recipient}`);
+			} else {
+				console.warn(`Recipient tag "${recipientTagName}" not found in Paperless`);
 			}
 		}
 
