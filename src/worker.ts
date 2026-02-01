@@ -12,6 +12,11 @@ function parsePlusAddressTags(email: string): string[] {
 	return tagPart.split('+').map((t) => t.toLowerCase()).filter((t) => t.length > 0);
 }
 
+// Map plus-address tags to group IDs for permissions
+const TAG_GROUP_MAP: Record<string, number> = {
+	'nunc': 6,
+};
+
 interface PaperlessDocument {
 	title: string;
 	created?: Date;
@@ -166,11 +171,28 @@ export default {
 			tags: tagIds.length > 0 ? tagIds.join(',') : undefined,
 		};
 
+		// Build group permissions from plus-address tags
+		const groupIds: number[] = [];
+		for (const tagName of plusTags) {
+			const groupId = TAG_GROUP_MAP[tagName];
+			if (groupId) {
+				groupIds.push(groupId);
+			}
+		}
+
 		const formData = new FormData();
 		formData.append('document', new Blob([attachment.content]));
 		formData.append('title', doc.title);
 		if (doc.tags) {
 			formData.append('tags', doc.tags);
+		}
+		if (groupIds.length > 0) {
+			const permissions = {
+				view: { groups: groupIds },
+				change: { groups: groupIds },
+			};
+			formData.append('set_permissions', JSON.stringify(permissions));
+			console.log(`Setting permissions for groups: ${groupIds.join(', ')}`);
 		}
 
 		console.log(`Uploading document: title="${title}", tags="${doc.tags}"`);
